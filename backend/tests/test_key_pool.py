@@ -73,4 +73,29 @@ async def test_nvidia_engine_rotates_key_on_rate_limit() -> None:
     limited.chat.completions.create.assert_awaited_once()
     healthy.chat.completions.create.assert_awaited_once()
     # The rate-limited key is now skipped
-    assert engine._key_pool.next_key() == "nvapi-rl-2"
+    assert engine._key_pool.next_key() == ("nvapi-rl-2", "meta/llama-3.3-70b-instruct")
+
+
+@pytest.mark.asyncio
+async def test_nvidia_engine_rotates_models() -> None:
+    engine = NvidiaSynthesisEngine(
+        Settings(NVIDIA_API_KEY="nvapi-mr-1", NVIDIA_MODELS="model-a, model-b")
+    )
+    message = MagicMock()
+    message.content = MOCK_DOSSIER_JSON
+    response = MagicMock()
+    response.choices = [MagicMock(message=message)]
+    client = MagicMock()
+    client.chat.completions.create = AsyncMock(return_value=response)
+    engine._clients = {"nvapi-mr-1": client}
+
+    await engine.synthesize(SynthesisRequest(person_name="A"))
+    await engine.synthesize(SynthesisRequest(person_name="B"))
+
+    models = [c.kwargs["model"] for c in client.chat.completions.create.call_args_list]
+    assert models == ["model-a", "model-b"]
+
+
+def test_nvidia_model_list_falls_back_to_single_model() -> None:
+    assert Settings(NVIDIA_MODEL="m1", NVIDIA_MODELS="").nvidia_model_list() == ["m1"]
+    assert Settings(NVIDIA_MODELS="a,b").nvidia_model_list() == ["a", "b"]

@@ -87,6 +87,14 @@ def get_pool(name: str, items: Sequence[T], label: Callable[[T], str] | None = N
         return pool
 
 
+def get_key_model_pool(
+    name: str, raw_keys: str | None, models: Sequence[str]
+) -> KeyPool[tuple[str, str]]:
+    """Shared pool of (key, model) pairs, model-major so load spreads over keys first."""
+    pairs = [(key, model) for model in models for key in parse_keys(raw_keys)]
+    return get_pool(name, pairs, label=lambda p: f"{mask_key(p[0])}/{p[1]}")
+
+
 def get_key_pool(name: str, raw_keys: str | None) -> KeyPool[str]:
     """Shared pool for a comma-separated key string."""
     return get_pool(name, parse_keys(raw_keys))

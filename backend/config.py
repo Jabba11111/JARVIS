@@ -43,6 +43,8 @@ class Settings(BaseSettings):
         default="https://integrate.api.nvidia.com/v1", alias="NVIDIA_BASE_URL"
     )
     nvidia_model: str = Field(default="meta/llama-3.3-70b-instruct", alias="NVIDIA_MODEL")
+    # Comma-separated models, rotated together with the keys (overrides NVIDIA_MODEL)
+    nvidia_models: str | None = Field(default=None, alias="NVIDIA_MODELS")
     nvidia_agent_model: str | None = Field(default=None, alias="NVIDIA_AGENT_MODEL")
     telegram_bot_token: str | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
     hibp_api_key: str | None = Field(default=None, alias="HIBP_API_KEY")
@@ -57,6 +59,11 @@ class Settings(BaseSettings):
     sixtyfour_api_key: str | None = Field(default=None, alias="SIXTYFOUR_API_KEY")
     browser_use_profile_id: str | None = Field(default=None, alias="BROWSER_USE_PROFILE_ID")
     op_vault_id: str | None = Field(default=None, alias="OP_VAULT_ID")
+
+    def nvidia_model_list(self) -> list[str]:
+        from key_pool import parse_keys
+
+        return parse_keys(self.nvidia_models) or [self.nvidia_model]
 
     def service_flags(self) -> dict[str, bool]:
         return {

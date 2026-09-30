@@ -10,7 +10,7 @@ import json
 from loguru import logger
 
 from config import Settings
-from key_pool import get_key_pool
+from key_pool import get_key_model_pool
 from synthesis.anthropic_engine import SYNTHESIS_PROMPT, AnthropicSynthesisEngine
 from synthesis.models import SynthesisRequest, SynthesisResult
 
@@ -20,7 +20,9 @@ class NvidiaSynthesisEngine(AnthropicSynthesisEngine):
 
     def __init__(self, settings: Settings):
         super().__init__(settings)
-        self._key_pool = get_key_pool("nvidia", settings.nvidia_api_key)
+        self._key_pool = get_key_model_pool(
+            "nvidia", settings.nvidia_api_key, settings.nvidia_model_list()
+        )
         self._clients: dict[str, object] = {}
 
     @property
@@ -30,7 +32,10 @@ class NvidiaSynthesisEngine(AnthropicSynthesisEngine):
     def _get_client(self, api_key: str | None = None):
         if self._client is not None:  # injected (tests)
             return self._client
-        key = api_key or self._key_pool.next_key()
+        key = api_key
+        if key is None:
+            pair = self._key_pool.next_key()
+            key = pair[0] if pair else ""
         if key not in self._clients:
             from openai import AsyncOpenAI
 
@@ -43,16 +48,25 @@ class NvidiaSynthesisEngine(AnthropicSynthesisEngine):
         return self._clients[key]
 
     async def _complete(self, prompt: str) -> str:
-        """Call the model, rotating to the next key on rate-limit or auth errors."""
-        from openai import AuthenticationError, PermissionDeniedError, RateLimitError
+        """Call the model, rotating to the next key/model pair on rate-limit or auth errors."""
+        from openai import (
+            AuthenticationError,
+            NotFoundError,
+            PermissionDeniedError,
+            RateLimitError,
+        )
 
         attempts = max(1, len(self._key_pool))
         last_exc: Exception | None = None
         for _ in range(attempts):
-            key = self._key_pool.next_key()
+            pair = self._key_pool.next_key()
+            if pair is None:
+                break
+            key, model = pair
             try:
+                logger.debug("NVIDIA call key=...{} model={}", key[-4:], model)
                 response = await self._get_client(key).chat.completions.create(
-                    model=self._settings.nvidia_model,
+                    model=model,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.2,
                     max_tokens=4096,
@@ -62,20 +76,19 @@ class NvidiaSynthesisEngine(AnthropicSynthesisEngine):
                 return response.choices[0].message.content or ""
             except RateLimitError as exc:
                 last_exc = exc
-                if key:
-                    self._key_pool.mark_failed(key, cooldown_s=60.0)
-            except (AuthenticationError, PermissionDeniedError) as exc:
+                self._key_pool.mark_failed(pair, cooldown_s=60.0)
+            except (AuthenticationError, PermissionDeniedError, NotFoundError) as exc:
                 last_exc = exc
-                if key:
-                    self._key_pool.mark_failed(key, cooldown_s=3600.0)
-        assert last_exc is not None
+                self._key_pool.mark_failed(pair, cooldown_s=3600.0)
+        if last_exc is None:
+            raise RuntimeError("No NVIDIA API key configured (NVIDIA_API_KEY)")
         raise last_exc
 
     async def synthesize(self, request: SynthesisRequest) -> SynthesisResult:
         """Synthesize enrichment data into a structured person report."""
-        model = self._settings.nvidia_model
         logger.info(
-            "NvidiaSynthesisEngine.synthesize person={} model={}", request.person_name, model
+            "NvidiaSynthesisEngine.synthesize person={} models={}",
+            request.person_name, ",".join(self._settings.nvidia_model_list()),
         )
 
         if not self.configured:
