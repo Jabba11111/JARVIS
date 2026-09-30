@@ -39,10 +39,18 @@ export interface Tag {
   target_id: string;
   status: TagStatus;
   photo_id: string | null;
+  /** Frames buffered just before the claim, shown as the killcam. */
+  killcam: string[];
   points_awarded: number;
   reason: string | null;
   created_at: string;
   resolved_at: string | null;
+}
+
+export interface UploadedPhoto {
+  photo_id: string;
+  faces_blurred: number;
+  killcam_frames: number;
 }
 
 export interface FeedItem {
@@ -226,6 +234,20 @@ export const postPhoto = (
 
 export const voteFeedItem = (itemId: string, playerId: string): Promise<FeedItem> =>
   post(`/feed/${itemId}/vote`, { player_id: playerId });
+
+/** Upload a photo. Every face is blurred server-side before it is stored. */
+export const uploadPhoto = (
+  imageBase64: string,
+  options: { playerId?: string; killcam?: boolean } = {},
+): Promise<UploadedPhoto> =>
+  post("/photos", {
+    image: imageBase64,
+    player_id: options.playerId ?? null,
+    killcam: options.killcam ?? false,
+  });
+
+export const photoUrl = (photoId: string): string =>
+  `${API_BASE}/api/game/photos/${photoId}`;
 
 export const tick = (): Promise<{ released_hints: string[]; expired_tags: string[] }> =>
   post("/tick");

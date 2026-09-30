@@ -7,26 +7,38 @@ player confirms it.
 """
 from __future__ import annotations
 
+import base64
+import binascii
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from loguru import logger
 from pydantic import BaseModel, Field
 
 from game.engine import GameEngine, GameError
 from game.models import GameConfig, GameMode, PowerUp
+from game.photos import PhotoStore, blur_faces
 
 router = APIRouter(prefix="/api/game", tags=["game"])
 
+MAX_PHOTO_BYTES = 8 * 1024 * 1024
+
 _engine = GameEngine()
+_photos = PhotoStore()
 _enabled = False
+_detector: Any = None
 
 
-def configure(*, enabled: bool) -> None:
+def configure(*, enabled: bool, detector: Any = None) -> None:
     """Set the default on/off state at startup (JARVIS_GAME_MODE)."""
-    global _enabled  # noqa: PLW0603
+    global _enabled, _detector  # noqa: PLW0603
     _enabled = enabled
+    _detector = detector
     logger.info("Game mode {}", "enabled" if enabled else "disabled")
+
+
+def get_photo_store() -> PhotoStore:
+    return _photos
 
 
 def get_engine() -> GameEngine:
@@ -78,6 +90,7 @@ async def set_mode(body: ModeToggle) -> dict[str, Any]:
     _enabled = body.enabled
     if not body.enabled:
         _engine.reset()
+        _photos.clear()
     logger.info("Game mode switched {}", "on" if body.enabled else "off")
     return {"enabled": _enabled}
 
@@ -110,6 +123,7 @@ async def new_game(body: GameSetup) -> dict[str, Any]:
     """Start a fresh lobby with these rules, clearing any previous game."""
     engine = _require_enabled()
     engine.reset()
+    _photos.clear()
     engine.config = GameConfig(
         mode=body.mode,
         play_window_start=body.play_window_start,
@@ -167,6 +181,8 @@ class TagClaim(BaseModel):
     tagger_id: str
     target_id: str
     photo_id: str | None = None
+    # Attach the frames buffered just before the claim as a killcam
+    with_killcam: bool = True
 
 
 class TagDecision(BaseModel):
@@ -188,8 +204,9 @@ class PhotoPost(BaseModel):
 async def claim_tag(body: TagClaim) -> dict[str, Any]:
     """Claim a tag. It waits for the target to confirm before it counts."""
     engine = _require_enabled()
+    killcam = _photos.take_killcam(body.tagger_id) if body.with_killcam else []
     tag = _guard(lambda: engine.claim_tag(
-        body.tagger_id, body.target_id, photo_id=body.photo_id,
+        body.tagger_id, body.target_id, photo_id=body.photo_id, killcam=killcam,
     ))
     return tag.to_dict()
 
@@ -283,3 +300,66 @@ async def state(player_id: str | None = None) -> dict[str, Any]:
 async def scoreboard() -> dict[str, Any]:
     engine = _require_enabled()
     return {"scoreboard": engine.scoreboard()}
+
+
+# ── photos ─────────────────────────────────────────────────────────────────
+
+
+class PhotoUpload(BaseModel):
+    """A base64 JPEG/PNG, with or without a data: prefix."""
+
+    image: str
+    player_id: str | None = None
+    killcam: bool = False
+
+
+def _decode_image(raw: str) -> bytes:
+    payload = raw.split(",", 1)[1] if raw.startswith("data:") else raw
+    try:
+        data = base64.b64decode(payload, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Ongeldige afbeelding") from exc
+    if not data:
+        raise HTTPException(status_code=400, detail="Lege afbeelding")
+    if len(data) > MAX_PHOTO_BYTES:
+        raise HTTPException(status_code=413, detail="Afbeelding is te groot")
+    return data
+
+
+@router.post("/photos")
+async def upload_photo(body: PhotoUpload) -> dict[str, Any]:
+    """Store a photo with every face blurred, and return its id.
+
+    Set killcam=true to add it to the player's rolling buffer instead of
+    sharing it; those frames are attached to their next tag claim.
+    """
+    _require_enabled()
+    data = _decode_image(body.image)
+    try:
+        blurred, faces = await blur_faces(data, _detector)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    photo_id = _photos.add(blurred)
+    buffered = 0
+    if body.killcam and body.player_id:
+        buffered = len(_photos.push_killcam(body.player_id, photo_id))
+    return {
+        "photo_id": photo_id,
+        "faces_blurred": faces,
+        "killcam_frames": buffered,
+    }
+
+
+@router.get("/photos/{photo_id}")
+async def get_photo(photo_id: str) -> Response:
+    """Serve a stored photo. Faces were blurred before it was stored."""
+    _require_enabled()
+    data = _photos.get(photo_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Foto niet gevonden")
+    return Response(
+        content=data,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, max-age=300"},
+    )

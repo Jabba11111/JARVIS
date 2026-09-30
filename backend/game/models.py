@@ -134,6 +134,7 @@ class Tag:
     created_at: datetime
     status: TagStatus = TagStatus.PENDING
     photo_id: str | None = None
+    killcam: list[str] = field(default_factory=list)
     points_awarded: int = 0
     reason: str | None = None       # why a tag was rejected
     resolved_at: datetime | None = None
@@ -145,6 +146,7 @@ class Tag:
             "target_id": self.target_id,
             "status": self.status.value,
             "photo_id": self.photo_id,
+            "killcam": list(self.killcam),
             "points_awarded": self.points_awarded,
             "reason": self.reason,
             "created_at": self.created_at.isoformat(),

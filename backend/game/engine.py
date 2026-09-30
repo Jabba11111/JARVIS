@@ -205,6 +205,7 @@ class GameEngine:
         target_id: str,
         *,
         photo_id: str | None = None,
+        killcam: list[str] | None = None,
         now: datetime | None = None,
     ) -> Tag:
         """Claim a tag. It stays pending until the target confirms it themselves."""
@@ -230,6 +231,7 @@ class GameEngine:
             target_id=target_id,
             created_at=now,
             photo_id=photo_id,
+            killcam=list(killcam or []),
         )
         self.tags[tag.tag_id] = tag
 
@@ -288,7 +290,11 @@ class GameEngine:
             text=f"{tagger.name} tagde {target.name}",
             photo_id=tag.photo_id,
             now=now,
-            meta={"points": points, "endgame": self.is_endgame(now)},
+            meta={
+                "points": points,
+                "endgame": self.is_endgame(now),
+                "killcam": list(tag.killcam),
+            },
         )
         logger.info(
             "game={} tag confirmed {} -> {} points={}",

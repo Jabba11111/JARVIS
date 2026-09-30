@@ -4,7 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThumbsUp } from "lucide-react";
 
-import { voteFeedItem, type FeedItem } from "@/lib/gameApi";
+import { photoUrl, voteFeedItem, type FeedItem } from "@/lib/gameApi";
 
 interface GameFeedProps {
   feed: FeedItem[];
@@ -26,6 +26,11 @@ const KIND_LABEL: Record<FeedItem["kind"], string> = {
   photo: "FOTO",
   system: "SYSTEEM",
 };
+
+function killcamFrames(item: FeedItem): string[] {
+  const frames = item.meta.killcam;
+  return Array.isArray(frames) ? frames.filter((id): id is string => typeof id === "string") : [];
+}
 
 /** The shared board: tag broadcasts, hint releases and photos the group votes on. */
 export function GameFeed({ feed, playerId, playerNames, onVoted }: GameFeedProps) {
@@ -92,6 +97,41 @@ export function GameFeed({ feed, playerId, playerNames, onVoted }: GameFeedProps
                       <p className="text-[11px]" style={{ color: "var(--pin-gold)" }}>
                         +{item.meta.points} punten{item.meta.endgame ? " (eindfase, dubbel)" : ""}
                       </p>
+                    )}
+
+                    {item.photo_id && (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={photoUrl(item.photo_id)}
+                        alt="Gedeelde foto, gezichten vervaagd"
+                        loading="lazy"
+                        className="mt-2 max-h-56 w-full rounded object-cover"
+                        style={{ background: "rgba(10,13,8,0.6)" }}
+                      />
+                    )}
+
+                    {killcamFrames(item).length > 0 && (
+                      <div className="mt-2">
+                        <p
+                          className="mb-1 text-[10px] tracking-[0.24em]"
+                          style={{ color: "var(--alert-amber)" }}
+                        >
+                          KILLCAM
+                        </p>
+                        <div className="flex gap-1 overflow-x-auto">
+                          {killcamFrames(item).map((frameId) => (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              key={frameId}
+                              src={photoUrl(frameId)}
+                              alt="Killcam-beeld, gezichten vervaagd"
+                              loading="lazy"
+                              className="h-16 w-20 shrink-0 rounded object-cover"
+                              style={{ background: "rgba(10,13,8,0.6)" }}
+                            />
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                   {item.kind === "photo" && playerId && (

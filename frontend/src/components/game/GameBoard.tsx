@@ -18,6 +18,7 @@ import { GameScoreboard } from "./GameScoreboard";
 import { GameToggle } from "./GameToggle";
 import { JoinForm } from "./JoinForm";
 import { PendingTags } from "./PendingTags";
+import { PhotoCapture } from "./PhotoCapture";
 import { TargetPanel } from "./TargetPanel";
 
 const MODES: { value: GameMode; label: string }[] = [
@@ -311,6 +312,14 @@ export function GameBoard() {
                     ))}
                   </ul>
                 </section>
+              )}
+
+              {playerId && snapshot.me && snapshot.state === "running" && (
+                <PhotoCapture
+                  playerId={playerId}
+                  hunting={Boolean(snapshot.my_target)}
+                  onPosted={() => void refresh()}
+                />
               )}
 
               <GameScoreboard

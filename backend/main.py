@@ -246,7 +246,7 @@ app.add_middleware(
 
 app.include_router(webhook_router)
 app.include_router(game_router)
-configure_game(enabled=settings.game_mode)
+configure_game(enabled=settings.game_mode, detector=detector)
 
 
 @app.get("/api/health", response_model=HealthResponse)

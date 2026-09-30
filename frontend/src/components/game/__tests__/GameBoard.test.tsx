@@ -197,6 +197,7 @@ describe("GameBoard lobby and play", () => {
           target_id: "p2",
           status: "pending",
           photo_id: null,
+          killcam: [],
           points_awarded: 0,
           reason: null,
           created_at: "2026-06-01T12:00:00+00:00",
