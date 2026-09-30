@@ -29,10 +29,13 @@ class Settings(BaseSettings):
     exa_api_key: str | None = Field(default=None, alias="EXA_API_KEY")
     browser_use_api_key: str | None = Field(default=None, alias="BROWSER_USE_API_KEY")
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
+    # Several comma-separated keys and/or models are rotated round-robin.
     gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
+    gemini_models: str = Field(default="gemini-2.0-flash", alias="GEMINI_MODELS")
     laminar_api_key: str | None = Field(default=None, alias="LMNR_PROJECT_API_KEY")
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
-    # NVIDIA API catalog (build.nvidia.com) — OpenAI-compatible endpoint
+    # NVIDIA API catalog (build.nvidia.com) — OpenAI-compatible endpoint.
+    # Accepts several comma-separated keys; they are used round-robin.
     nvidia_api_key: str | None = Field(default=None, alias="NVIDIA_API_KEY")
     nvidia_base_url: str = Field(
         default="https://integrate.api.nvidia.com/v1", alias="NVIDIA_BASE_URL"

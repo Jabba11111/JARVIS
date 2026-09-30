@@ -244,11 +244,16 @@ class BaseBrowserAgent(ABC):
         if self._settings.nvidia_api_key:
             from browser_use import ChatOpenAI as BrowserUseChatOpenAI
 
+            from key_pool import get_key_pool
+
             model = self._settings.nvidia_agent_model or self._settings.nvidia_model
-            logger.debug("agent={} using NVIDIA {}", self.agent_name, model)
+            api_key = get_key_pool("nvidia", self._settings.nvidia_api_key).next_key()
+            logger.debug(
+                "agent={} using NVIDIA {} key=...{}", self.agent_name, model, (api_key or "")[-4:]
+            )
             return BrowserUseChatOpenAI(
                 model=model,
-                api_key=self._settings.nvidia_api_key,
+                api_key=api_key,
                 base_url=self._settings.nvidia_base_url,
             )
 

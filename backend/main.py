@@ -117,7 +117,7 @@ if settings.browser_use_api_key:
         logger.warning("DeepResearcher init failed, falling back to Exa-only mode: {}", exc)
 
 # Audio command processor (Gemini Flash transcription)
-audio_processor = AudioCommandProcessor(settings.gemini_api_key) if settings.gemini_api_key else None  # noqa: E501
+audio_processor = AudioCommandProcessor(settings.gemini_api_key, settings.gemini_models) if settings.gemini_api_key else None  # noqa: E501
 
 pipeline = CapturePipeline(
     detector=detector,
