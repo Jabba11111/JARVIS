@@ -17,6 +17,19 @@ echo.
 echo  === JARVIS lokale opstart ===
 echo.
 
+REM --- Schrijfrechten controleren ----------------------------
+echo test> "%ROOT%.jarvis-write-test" 2>nul
+if not exist "%ROOT%.jarvis-write-test" (
+    echo [FOUT] Geen schrijfrechten in: %ROOT%
+    echo        Staat de repo in een beveiligde map zoals C:\Windows\System32 of C:\Program Files?
+    echo        Clone de repo opnieuw in je eigen gebruikersmap, bijvoorbeeld:
+    echo            cd %%USERPROFILE%%
+    echo            git clone https://github.com/Jabba11111/JARVIS.git
+    echo        en start daarna JARVIS\start.bat vanuit die map.
+    goto :fail
+)
+del "%ROOT%.jarvis-write-test" >nul 2>&1
+
 REM --- Vereisten controleren ---------------------------------
 where python >nul 2>&1
 if errorlevel 1 (
