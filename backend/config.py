@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     convex_url: str | None = Field(default=None, alias="CONVEX_URL")
     mongodb_uri: str | None = Field(default=None, alias="MONGODB_URI")
     exa_api_key: str | None = Field(default=None, alias="EXA_API_KEY")
+    # Use Exa's people index (category="people") for plain name lookups
+    exa_people_search: bool = Field(default=True, alias="EXA_PEOPLE_SEARCH")
     browser_use_api_key: str | None = Field(default=None, alias="BROWSER_USE_API_KEY")
     openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
     # Several comma-separated keys and/or models are rotated round-robin.
