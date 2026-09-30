@@ -86,6 +86,7 @@ goto :npm_done
 :npm_install
 echo [INFO] Frontend dependencies installeren ...
 pushd frontend
+if exist ".next" rmdir /s /q ".next"
 call npm install
 if errorlevel 1 (
     popd
