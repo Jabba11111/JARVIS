@@ -48,6 +48,7 @@ from schemas import (
 )
 from synthesis.anthropic_engine import AnthropicSynthesisEngine
 from synthesis.engine import GeminiSynthesisEngine
+from synthesis.nvidia_engine import NvidiaSynthesisEngine
 from tasks import TASK_PHASES
 
 settings = get_settings()
@@ -73,7 +74,7 @@ face_searcher = FaceSearchManager(settings)
 
 # Enrichment + research + synthesis (None when API keys missing)
 exa_client = ExaEnrichmentClient(settings) if settings.exa_api_key else None
-orchestrator = ResearchOrchestrator(settings) if (settings.browser_use_api_key or settings.openai_api_key) else None  # noqa: E501
+orchestrator = ResearchOrchestrator(settings) if (settings.browser_use_api_key or settings.openai_api_key or settings.nvidia_api_key) else None  # noqa: E501
 synthesis_engine = None
 if settings.anthropic_api_key:
     try:
@@ -87,6 +88,17 @@ if settings.gemini_api_key:
         synthesis_fallback = GeminiSynthesisEngine(settings)
     except Exception as exc:
         logger.warning("Gemini engine init failed, continuing without it: {}", exc)
+
+# NVIDIA fills whichever synthesis slot is still empty
+if settings.nvidia_api_key and (synthesis_engine is None or synthesis_fallback is None):
+    try:
+        nvidia_engine = NvidiaSynthesisEngine(settings)
+        if synthesis_engine is None:
+            synthesis_engine = nvidia_engine
+        else:
+            synthesis_fallback = nvidia_engine
+    except Exception as exc:
+        logger.warning("NVIDIA engine init failed, continuing without it: {}", exc)
 
 # SuperMemory for person dossier caching (None when API key missing)
 supermemory_client = None
@@ -252,6 +264,7 @@ async def services() -> list[ServiceStatus]:
         "openai": "Transcription and fallback LLM integrations",
         "anthropic": "Primary synthesis model (Claude)",
         "gemini": "Fallback vision and synthesis model when Anthropic unavailable",
+        "nvidia": "NVIDIA-hosted LLM for synthesis and browser agents (OpenAI-compatible)",
         "laminar": "Tracing and evaluation telemetry",
         "telegram": "Glasses-side media intake",
         "pimeyes_pool": "Rotating account pool for identification",

@@ -49,7 +49,11 @@ class BaseBrowserAgent(ABC):
 
     @property
     def configured(self) -> bool:
-        return bool(self._settings.browser_use_api_key or self._settings.openai_api_key)
+        return bool(
+            self._settings.browser_use_api_key
+            or self._settings.openai_api_key
+            or self._settings.nvidia_api_key
+        )
 
     @abstractmethod
     async def _run_task(self, request: ResearchRequest) -> AgentResult:
@@ -209,7 +213,8 @@ class BaseBrowserAgent(ABC):
         """Build the LLM instance for browser-use agents.
 
         Prefers ChatBrowserUse (optimized for browser automation, 3-5x faster).
-        Falls back to ChatOpenAI with gpt-4o-mini if OPENAI_API_KEY is set.
+        Falls back to ChatOpenAI with gpt-4o-mini if OPENAI_API_KEY is set,
+        then to an NVIDIA-hosted model if NVIDIA_API_KEY is set.
         """
         # Prefer ChatBrowserUse with BU 2.0 model (+12% accuracy over 1.0)
         if self._settings.browser_use_api_key:
@@ -235,7 +240,25 @@ class BaseBrowserAgent(ABC):
                 api_key=self._settings.openai_api_key,
             )
 
-        raise RuntimeError("No LLM configured: set BROWSER_USE_API_KEY or OPENAI_API_KEY")
+        # Fallback to NVIDIA API catalog (OpenAI-compatible endpoint)
+        if self._settings.nvidia_api_key:
+            from browser_use import ChatOpenAI as BrowserUseChatOpenAI
+
+            model = self._settings.nvidia_agent_model or self._settings.nvidia_model
+            logger.debug("agent={} using NVIDIA {}", self.agent_name, model)
+            return BrowserUseChatOpenAI(
+                model=model,
+                api_key=self._settings.nvidia_api_key,
+                base_url=self._settings.nvidia_base_url,
+            )
+
+        raise RuntimeError(
+            "No LLM configured: set BROWSER_USE_API_KEY, OPENAI_API_KEY or NVIDIA_API_KEY"
+        )
+
+    def _llm_supports_vision(self) -> bool:
+        """NVIDIA-hosted models are mostly text-only, so skip screenshots for them."""
+        return bool(self._settings.browser_use_api_key or self._settings.openai_api_key)
 
     def _create_browser_agent(
         self, task: str, *, max_steps: int = 10, needs_login: bool = False,
@@ -266,7 +289,7 @@ class BaseBrowserAgent(ABC):
             "enable_planning": False,
             "step_timeout": 60,
             "max_actions_per_step": 3,
-            "use_vision": "auto",
+            "use_vision": "auto" if self._llm_supports_vision() else False,
         }
 
         # Only inject signup credentials for agents that might hit login walls

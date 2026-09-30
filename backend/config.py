@@ -32,6 +32,13 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = Field(default=None, alias="GEMINI_API_KEY")
     laminar_api_key: str | None = Field(default=None, alias="LMNR_PROJECT_API_KEY")
     anthropic_api_key: str | None = Field(default=None, alias="ANTHROPIC_API_KEY")
+    # NVIDIA API catalog (build.nvidia.com) — OpenAI-compatible endpoint
+    nvidia_api_key: str | None = Field(default=None, alias="NVIDIA_API_KEY")
+    nvidia_base_url: str = Field(
+        default="https://integrate.api.nvidia.com/v1", alias="NVIDIA_BASE_URL"
+    )
+    nvidia_model: str = Field(default="meta/llama-3.3-70b-instruct", alias="NVIDIA_MODEL")
+    nvidia_agent_model: str | None = Field(default=None, alias="NVIDIA_AGENT_MODEL")
     telegram_bot_token: str | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
     hibp_api_key: str | None = Field(default=None, alias="HIBP_API_KEY")
     pimeyes_account_pool: str = Field(default="[]", alias="PIMEYES_ACCOUNT_POOL")
@@ -55,6 +62,7 @@ class Settings(BaseSettings):
             "openai": bool(self.openai_api_key),
             "gemini": bool(self.gemini_api_key),
             "anthropic": bool(self.anthropic_api_key),
+            "nvidia": bool(self.nvidia_api_key),
             "laminar": bool(self.laminar_api_key),
             "telegram": bool(self.telegram_bot_token),
             "hibp": bool(self.hibp_api_key),
