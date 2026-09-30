@@ -25,6 +25,8 @@ from db.convex_client import ConvexGateway
 from db.memory_gateway import InMemoryDatabaseGateway
 from enrichment.exa_client import ExaEnrichmentClient
 from enrichment.models import EnrichmentRequest
+from game.routes import configure as configure_game
+from game.routes import router as game_router
 from identification.detector import MediaPipeFaceDetector
 from identification.embedder import ArcFaceEmbedder
 from identification.search_manager import FaceSearchManager
@@ -243,6 +245,8 @@ app.add_middleware(
 )
 
 app.include_router(webhook_router)
+app.include_router(game_router)
+configure_game(enabled=settings.game_mode)
 
 
 @app.get("/api/health", response_model=HealthResponse)

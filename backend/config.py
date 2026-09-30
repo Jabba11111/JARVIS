@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     )
 
     app_name: str = "JARVIS API"
+    # Opt-in hunters game for consenting colleagues; off means the routes 404
+    game_mode: bool = Field(default=False, alias="JARVIS_GAME_MODE")
     environment: str = Field(default="development", alias="JARVIS_ENV")
     log_level: str = Field(default="INFO", alias="JARVIS_LOG_LEVEL")
     frontend_origin: str = Field(default="http://localhost:3000", alias="JARVIS_FRONTEND_ORIGIN")
